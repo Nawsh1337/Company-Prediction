@@ -10,42 +10,12 @@ Original file is located at
 !pip install huggingface_hub
 !huggingface-cli login
 
-#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
-#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
 
 # Transformers installation
 ! pip install transformers datasets
 ! pip install transformers datasets evaluate
-# To install from source instead of the last release, comment the command above and uncomment the following one.
-# ! pip install git+https://github.com/huggingface/transformers.git
 
-"""# Text classification
 
-Text classification is a common NLP task that assigns a label or class to text. Some of the largest companies run text classification in production for a wide range of practical applications. One of the most popular forms of text classification is sentiment analysis, which assigns a label like 🙂 positive, 🙁 negative, or 😐 neutral to a sequence of text. 
-
-This guide will show you how to:
-
-1. Finetune [DistilBERT](https://huggingface.co/distilbert-base-uncased) on the [IMDb](https://huggingface.co/datasets/imdb) dataset to determine whether a movie review is positive or negative.
-2. Use your finetuned model for inference.
-
-<Tip>
-
-See the text classification [task page](https://huggingface.co/tasks/text-classification) for more information about other forms of text classification and their associated models, datasets, and metrics.
-
-</Tip>
-
-Before you begin, make sure you have all the necessary libraries installed:
-
-```bash
-pip install transformers datasets evaluate
-```
-
-We encourage you to login to your Hugging Face account so you can upload and share your model with the community. When prompted, enter your token to login:
-
-## Load IMDb dataset
-
-Start by loading the IMDb dataset from the 🤗 Datasets library:
-"""
 
 from datasets import load_dataset
 
@@ -55,20 +25,16 @@ data2 = load_dataset("nawsh1337/train_to_save_model_1000_rows",split="train")
 
 # data2 = load_dataset("nawsh1337/test",split="test")
 
-"""Then take a look at an example:"""
 
 print(data2["x"][0],data2["y"][0])
 
-"""## Preprocess
+## Preprocess
 
-The next step is to load a DistilBERT tokenizer to preprocess the `text` field:
-"""
 
 from transformers import AutoTokenizer
 
 tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
 
-"""Create a preprocessing function to tokenize `text` and truncate sequences to be no longer than DistilBERT's maximum input length:"""
 
 def rename_field(example):
     example["text"] = example.pop("x")
@@ -78,7 +44,6 @@ def rename_field(example):
 def preprocess_function(examples):
     return tokenizer(examples["text"], truncation=True)
 
-"""To apply the preprocessing function over the entire dataset, use 🤗 Datasets [map](https://huggingface.co/docs/datasets/main/en/package_reference/main_classes#datasets.Dataset.map) function. You can speed up `map` by setting `batched=True` to process multiple elements of the dataset at once:"""
 
 # data = data.map(rename_field,batched=True)
 
@@ -88,22 +53,18 @@ tokenized_data2 = data2.map(preprocess_function, batched=True)
 
 tokenized_data
 
-"""Now create a batch of examples using [DataCollatorWithPadding](https://huggingface.co/docs/transformers/main/en/main_classes/data_collator#transformers.DataCollatorWithPadding). It's more efficient to *dynamically pad* the sentences to the longest length in a batch during collation, instead of padding the whole dataset to the maximium length."""
 
 from transformers import DataCollatorWithPadding
 
 data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 
-"""## Evaluate
+## Evaluate
 
-Including a metric during training is often helpful for evaluating your model's performance. You can quickly load a evaluation method with the 🤗 [Evaluate](https://huggingface.co/docs/evaluate/index) library. For this task, load the [accuracy](https://huggingface.co/spaces/evaluate-metric/accuracy) metric (see the 🤗 Evaluate [quick tour](https://huggingface.co/docs/evaluate/a_quick_tour) to learn more about how to load and compute a metric):
-"""
 
 import evaluate
 
 accuracy = evaluate.load("accuracy")
 
-"""Then create a function that passes your predictions and labels to [compute](https://huggingface.co/docs/evaluate/main/en/package_reference/main_classes#evaluate.EvaluationModule.compute) to calculate the accuracy:"""
 
 import numpy as np
 
@@ -113,12 +74,6 @@ def compute_metrics(eval_pred):
     predictions = np.argmax(predictions, axis=1)
     return accuracy.compute(predictions=predictions, references=labels)
 
-"""Your `compute_metrics` function is ready to go now, and you'll return to it when you setup your training.
-
-## Train
-
-Before you start training your model, create a map of the expected ids to their labels with `id2label` and `label2id`:
-"""
 
 unique_labels = len(data.unique("label"))
 unique_labels
@@ -141,13 +96,6 @@ for i, value in enumerate(values2):
 print(dictionary2)
 print(inverse_dictionary2)
 
-"""<Tip>
-
-If you aren't familiar with finetuning a model with the [Trainer](https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.Trainer), take a look at the basic tutorial [here](https://huggingface.co/docs/transformers/main/en/tasks/../training#train-with-pytorch-trainer)!
-
-</Tip>
-You're ready to start training your model now! Load DistilBERT with [AutoModelForSequenceClassification](https://huggingface.co/docs/transformers/main/en/model_doc/auto#transformers.AutoModelForSequenceClassification) along with the number of expected labels, and the label mappings:
-"""
 
 mapping = dictionary
 original_list = tokenized_data["label"]
@@ -194,13 +142,6 @@ model = AutoModelForSequenceClassification.from_pretrained(
     "distilbert-base-uncased", num_labels=unique_labels, id2label=dictionary, label2id=inverse_dictionary
 )
 
-"""At this point, only three steps remain:
-
-1. Define your training hyperparameters in [TrainingArguments](https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.TrainingArguments). The only required parameter is `output_dir` which specifies where to save your model. You'll push this model to the Hub by setting `push_to_hub=True` (you need to be signed in to Hugging Face to upload your model). At the end of each epoch, the [Trainer](https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.Trainer) will evaluate the accuracy and save the training checkpoint.
-2. Pass the training arguments to [Trainer](https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.Trainer) along with the model, dataset, tokenizer, data collator, and `compute_metrics` function.
-3. Call [train()](https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.Trainer.train) to finetune your model.
-"""
-
 tokenized_data2[0]
 
 training_args = TrainingArguments(
@@ -227,60 +168,30 @@ trainer = Trainer(
 # u must push to hub 
 trainer.train()
 
-"""<Tip>
 
-[Trainer](https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.Trainer) applies dynamic padding by default when you pass `tokenizer` to it. In this case, you don't need to specify a data collator explicitly.
-
-</Tip>
-
-Once training is completed, share your model to the Hub with the [push_to_hub()](https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.Trainer.push_to_hub) method so everyone can use your model:
-"""
 
 trainer.push_to_hub()
 
-"""<Tip>
 
-For a more in-depth example of how to finetune a model for text classification, take a look at the corresponding
-[PyTorch notebook](https://colab.research.google.com/github/huggingface/notebooks/blob/main/examples/text_classification.ipynb)
-or [TensorFlow notebook](https://colab.research.google.com/github/huggingface/notebooks/blob/main/examples/text_classification-tf.ipynb).
-
-</Tip>
-
-## Inference
-
-Great, now that you've finetuned a model, you can use it for inference!
-
-Grab some text you'd like to run inference on:
-"""
 
 text = "VD BIOTECH"
-
-"""The simplest way to try out your finetuned model for inference is to use it in a [pipeline()](https://huggingface.co/docs/transformers/main/en/main_classes/pipelines#transformers.pipeline). Instantiate a `pipeline` for sentiment analysis with your model, and pass your text to it:"""
 
 from transformers import pipeline
 
 classifier = pipeline("sentiment-analysis", model="stevhliu")
 classifier(text)
 
-"""You can also manually replicate the results of the `pipeline` if you'd like:
-
-Tokenize the text and return PyTorch tensors:
-"""
 
 from transformers import AutoTokenizer
 
 tokenizer2 = AutoTokenizer.from_pretrained("nawsh1337/checkpoint-170792")
 inputs = tokenizer2(text, return_tensors="pt")
 
-"""Pass your inputs to the model and return the `logits`:"""
-
 from transformers import AutoModelForSequenceClassification
 import torch
 model2 = AutoModelForSequenceClassification.from_pretrained("nawsh1337/checkpoint-7500")
 with torch.no_grad():
     logits = model2(**inputs).logits
-
-"""Get the class with the highest probability, and use the model's `id2label` mapping to convert it to a text label:"""
 
 # predicted_class_id = logits.argmax().item()
 # model.config.id2label[predicted_class_id]
